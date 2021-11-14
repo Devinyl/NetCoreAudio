@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace NetCoreAudio.Interfaces
 {
-    public interface IPlayer
+    public interface IPlayer : IDisposable
     {
         event EventHandler PlaybackFinished;
 

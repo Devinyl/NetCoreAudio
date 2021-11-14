@@ -99,5 +99,10 @@ namespace NetCoreAudio.Players
                 PlaybackFinished?.Invoke(this, e);
             }
         }
+
+        public void Dispose()
+        {
+            Stop().Wait();
+        }
     }
 }

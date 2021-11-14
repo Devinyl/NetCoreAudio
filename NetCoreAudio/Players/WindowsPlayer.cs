@@ -36,7 +36,7 @@ namespace NetCoreAudio.Players
                 AutoReset = false
             };
             _playStopwatch = new Stopwatch();
-            ExecuteMsiCommand("Close All");
+            
             ExecuteMsiCommand($"Status {_fileName} Length");
             ExecuteMsiCommand($"Play {_fileName}");
             Paused = false;
@@ -118,6 +118,12 @@ namespace NetCoreAudio.Players
                 _playbackTimer.Interval = length;
 
             return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            Stop().Wait();
+            ExecuteMsiCommand("Close All");
         }
 	}
 }

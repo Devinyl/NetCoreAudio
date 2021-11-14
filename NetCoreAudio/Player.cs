@@ -80,5 +80,10 @@ namespace NetCoreAudio
         {
             PlaybackFinished?.Invoke(this, e);
         }
+
+        public void Dispose()
+        {
+            _internalPlayer.Dispose();
+        }
     }
 }
