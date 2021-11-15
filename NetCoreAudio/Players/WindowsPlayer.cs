@@ -37,8 +37,8 @@ namespace NetCoreAudio.Players
             };
             _playStopwatch = new Stopwatch();
             
-            ExecuteMsiCommand($"Status {_fileName} Length");
-            ExecuteMsiCommand($"Play {_fileName}");
+            ExecuteMciCommand($"Status {_fileName} Length");
+            ExecuteMciCommand($"Play {_fileName}");
             Paused = false;
             Playing = true;
             _playbackTimer.Elapsed += HandlePlaybackFinished;
@@ -52,7 +52,7 @@ namespace NetCoreAudio.Players
         {
             if (Playing && !Paused)
             {
-                ExecuteMsiCommand($"Pause {_fileName}");
+                ExecuteMciCommand($"Pause {_fileName}");
                 Paused = true;
                 _playbackTimer.Stop();
                 _playStopwatch.Stop();
@@ -66,7 +66,7 @@ namespace NetCoreAudio.Players
         {
             if (Playing && Paused)
             {
-                ExecuteMsiCommand($"Resume {_fileName}");
+                ExecuteMciCommand($"Resume {_fileName}");
                 Paused = false;
                 _playbackTimer.Start();
                 _playStopwatch.Reset();
@@ -79,7 +79,7 @@ namespace NetCoreAudio.Players
         {
             if (Playing)
             {
-                ExecuteMsiCommand($"Stop {_fileName}");
+                ExecuteMciCommand($"Stop {_fileName}");
 				Playing = false;
                 Paused = false;
                 _playbackTimer.Stop();
@@ -97,7 +97,7 @@ namespace NetCoreAudio.Players
             _playbackTimer = null;
         }
 
-        private Task ExecuteMsiCommand(string commandString)
+        private Task ExecuteMciCommand(string commandString)
         {
             var sb = new StringBuilder();
 
@@ -123,7 +123,7 @@ namespace NetCoreAudio.Players
         public void Dispose()
         {
             Stop().Wait();
-            ExecuteMsiCommand("Close All");
+            ExecuteMciCommand("Close All");
         }
 	}
 }
