@@ -17,6 +17,9 @@ namespace NetCoreAudio.Players
 		[DllImport("winmm.dll")]
 		private static extern int mciGetErrorString(int errorCode, StringBuilder errorText, int errorTextSize);
 
+        [DllImport("winmm.dll")]
+        public static extern int waveOutSetVolume(IntPtr hwo, uint dwVolume);
+
 		private Timer _playbackTimer;
         private Stopwatch _playStopwatch;
 
@@ -116,6 +119,18 @@ namespace NetCoreAudio.Players
 
             if (commandString.ToLower().StartsWith("status") && int.TryParse(sb.ToString(), out var length))
                 _playbackTimer.Interval = length;
+
+            return Task.CompletedTask;
+        }
+
+        public Task SetVolume(byte percent)
+        {
+            // Calculate the volume that's being set
+            int NewVolume = ushort.MaxValue / 100 * percent;
+            // Set the same volume for both the left and the right channels
+            uint NewVolumeAllChannels = ((uint)NewVolume & 0x0000ffff) | ((uint)NewVolume << 16);
+            // Set the volume
+            waveOutSetVolume(IntPtr.Zero, NewVolumeAllChannels);
 
             return Task.CompletedTask;
         }

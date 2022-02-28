@@ -100,6 +100,8 @@ namespace NetCoreAudio.Players
             }
         }
 
+        public abstract Task SetVolume(byte percent);
+
         public void Dispose()
         {
             Stop().Wait();

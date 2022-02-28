@@ -81,6 +81,15 @@ namespace NetCoreAudio
             PlaybackFinished?.Invoke(this, e);
         }
 
+        /// <summary>
+        /// Sets the playing volume as percent
+        /// </summary>
+        /// <returns></returns>
+        public async Task SetVolume(byte percent)
+        {
+            await _internalPlayer.SetVolume(percent);
+        }
+
         public void Dispose()
         {
             _internalPlayer.Dispose();
