@@ -109,6 +109,11 @@ namespace NetCoreAudio.Players
             return new Task<long>(() => 0);
         }
 
+        public Task Seek(long position)
+        {
+            return Task.CompletedTask;
+        }
+
         internal void HandlePlaybackFinished(object sender, EventArgs e)
         {
             if (Playing)

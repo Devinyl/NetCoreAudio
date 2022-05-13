@@ -18,5 +18,7 @@ namespace NetCoreAudio.Interfaces
         Task SetVolume(byte percent);
         Task<AudioFileInfo> GetFileInfo();
         Task<long> GetStatus();
+
+        Task Seek(long position);
     }
 }

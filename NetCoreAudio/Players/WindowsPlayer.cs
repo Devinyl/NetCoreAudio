@@ -31,6 +31,20 @@ namespace NetCoreAudio.Players
         public bool Playing { get; private set; }
         public bool Paused { get; private set; }
 
+        public Task Play(long position)
+        {
+            ExecuteMciCommand($"Play {_fileName} from {position}");
+            Paused = false;
+            Playing = true;
+            _elapsed = position;
+            _playbackTimer.Interval = _audioFileInfo.Length - _elapsed;
+            _playbackTimer.Start();
+            _playStopwatch.Reset();
+            _playStopwatch.Start();
+
+            return Task.CompletedTask;
+        }
+
         public Task Play(string fileName)
         {
             FileUtil.ClearTempFiles();
@@ -102,7 +116,7 @@ namespace NetCoreAudio.Players
                 Paused = false;
                 _playbackTimer.Stop();
                 _playStopwatch.Stop();
-                FileUtil.ClearTempFiles();
+                // FileUtil.ClearTempFiles();
             }
             return Task.CompletedTask;
         }
@@ -114,9 +128,18 @@ namespace NetCoreAudio.Players
 
         public Task<long> GetStatus()
         {
+            return GetStatus(false);
+        }
+        public Task<long> GetStatus(bool forceUpdate)
+        {
             if (_playStopwatch == null)
             {
                 return Task.FromResult(0L);
+            }
+
+            if (forceUpdate)
+            {
+                ExecuteMciCommand($"Status {_fileName} position").GetAwaiter().GetResult();
             }
 
             if (Paused)
@@ -127,6 +150,14 @@ namespace NetCoreAudio.Players
             return Task.FromResult(_elapsed + _playStopwatch.ElapsedMilliseconds);
         }
 
+        public Task Seek(long position)
+        {
+            Stop().GetAwaiter().GetResult();
+            Play(position);
+            var currentTime = GetStatus(true).GetAwaiter().GetResult();
+            _elapsed = currentTime;
+            return Task.CompletedTask;
+        }
 
         private void HandlePlaybackFinished(object sender, ElapsedEventArgs e)
         {
@@ -140,7 +171,7 @@ namespace NetCoreAudio.Players
         {
             var sb = new StringBuilder();
 
-            var result = mciSendString(commandString, sb, 1024 * 1024, IntPtr.Zero);
+             var result = mciSendString(commandString, sb, 1024 * 1024, IntPtr.Zero);
 
             if (result != 0)
             {
@@ -153,10 +184,14 @@ namespace NetCoreAudio.Players
 				throw new Exception(errorSb.ToString());
             }
 
-            if (commandString.ToLower().StartsWith("status") && int.TryParse(sb.ToString(), out var length))
+            if (commandString.ToLower().Contains("length") && int.TryParse(sb.ToString(), out var length))
             {
                 _playbackTimer.Interval = length;
                 _audioFileInfo.Length = length;
+            }
+            else if (commandString.ToLower().Contains("position") && int.TryParse(sb.ToString(), out var position))
+            {
+                _elapsed = position;
             }
 
             return Task.CompletedTask;

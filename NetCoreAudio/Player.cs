@@ -109,6 +109,11 @@ namespace NetCoreAudio
             return await _internalPlayer.GetStatus();
         }
 
+        public async Task Seek(long position)
+        {
+            await _internalPlayer.Seek(position);
+        }
+
         public void Dispose()
         {
             _internalPlayer.Dispose();
