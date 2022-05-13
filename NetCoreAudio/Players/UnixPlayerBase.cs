@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using NetCoreAudio.Utils;
 
 namespace NetCoreAudio.Players
 {
@@ -13,6 +14,8 @@ namespace NetCoreAudio.Players
         internal const string ResumeProcessCommand = "kill -CONT {0}";
 
         public event EventHandler PlaybackFinished;
+        
+        private AudioFileInfo _audioFileInfo = new AudioFileInfo();
 
         public bool Playing { get; private set; }
 
@@ -30,6 +33,11 @@ namespace NetCoreAudio.Players
             _process.ErrorDataReceived += HandlePlaybackFinished;
             _process.Disposed += HandlePlaybackFinished;
             Playing = true;
+
+            _audioFileInfo.FilePath = fileName;
+            _audioFileInfo.FileName = System.IO.Path.GetFileName(fileName);
+            _audioFileInfo.FileExtension = System.IO.Path.GetExtension(fileName);
+            _audioFileInfo.FileSize = new System.IO.FileInfo(fileName).Length;
         }
 
         public Task Pause()
@@ -89,6 +97,16 @@ namespace NetCoreAudio.Players
             };
             process.Start();
             return process;
+        }
+
+        public Task<AudioFileInfo> GetFileInfo()
+        {
+            return new Task<AudioFileInfo>(() => _audioFileInfo);
+        }
+
+        public Task<long> GetStatus()
+        {
+            return new Task<long>(() => 0);
         }
 
         internal void HandlePlaybackFinished(object sender, EventArgs e)

@@ -3,6 +3,7 @@ using NetCoreAudio.Players;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using NetCoreAudio.Utils;
 
 namespace NetCoreAudio
 {
@@ -88,6 +89,24 @@ namespace NetCoreAudio
         public async Task SetVolume(byte percent)
         {
             await _internalPlayer.SetVolume(percent);
+        }
+
+        /// <summary>
+        /// Returns media and file information
+        /// </summary>
+        /// <returns></returns>
+        public async Task<AudioFileInfo> GetFileInfo()
+        {
+            return await _internalPlayer.GetFileInfo();
+        }
+
+        /// <summary>
+        /// Returns the current position of the playback
+        /// </summary>
+        /// <returns></returns>
+        public async Task<long> GetStatus()
+        {
+            return await _internalPlayer.GetStatus();
         }
 
         public void Dispose()

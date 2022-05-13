@@ -20,10 +20,11 @@ namespace NetCoreAudio.Players
         [DllImport("winmm.dll")]
         public static extern int waveOutSetVolume(IntPtr hwo, uint dwVolume);
 
-		private Timer _playbackTimer;
+        private Timer _playbackTimer;
         private Stopwatch _playStopwatch;
-
+        private AudioFileInfo _audioFileInfo = new AudioFileInfo();
 		private string _fileName;
+        private long _elapsed = 0;
 
         public event EventHandler PlaybackFinished;
 
@@ -48,6 +49,19 @@ namespace NetCoreAudio.Players
             _playbackTimer.Start();
             _playStopwatch.Start();
 
+            _audioFileInfo.FilePath = fileName;
+            _audioFileInfo.FileName = System.IO.Path.GetFileName(fileName);
+            _audioFileInfo.FileExtension = System.IO.Path.GetExtension(fileName);
+            _audioFileInfo.FileSize = new System.IO.FileInfo(fileName).Length;
+
+            if (_audioFileInfo.FileExtension.EndsWith("mp3"))
+            {
+                // get IDv1 or IDv2 Tags
+            }
+
+            _elapsed = 0;
+
+
             return Task.CompletedTask;
         }
 
@@ -60,6 +74,7 @@ namespace NetCoreAudio.Players
                 _playbackTimer.Stop();
                 _playStopwatch.Stop();
                 _playbackTimer.Interval -= _playStopwatch.ElapsedMilliseconds;
+                _elapsed += _playStopwatch.ElapsedMilliseconds;
             }
 
             return Task.CompletedTask;
@@ -92,7 +107,28 @@ namespace NetCoreAudio.Players
             return Task.CompletedTask;
         }
 
-		private void HandlePlaybackFinished(object sender, ElapsedEventArgs e)
+        public Task<AudioFileInfo> GetFileInfo()
+        {
+            return Task.FromResult(_audioFileInfo);
+        }
+
+        public Task<long> GetStatus()
+        {
+            if (_playStopwatch == null)
+            {
+                return Task.FromResult(0L);
+            }
+
+            if (Paused)
+            {
+                return Task.FromResult(_elapsed);
+            }
+
+            return Task.FromResult(_elapsed + _playStopwatch.ElapsedMilliseconds);
+        }
+
+
+        private void HandlePlaybackFinished(object sender, ElapsedEventArgs e)
         {
             Playing = false;
             PlaybackFinished?.Invoke(this, e);
@@ -118,7 +154,10 @@ namespace NetCoreAudio.Players
             }
 
             if (commandString.ToLower().StartsWith("status") && int.TryParse(sb.ToString(), out var length))
+            {
                 _playbackTimer.Interval = length;
+                _audioFileInfo.Length = length;
+            }
 
             return Task.CompletedTask;
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using NetCoreAudio.Utils;
 
 namespace NetCoreAudio.Interfaces
 {
@@ -15,5 +16,7 @@ namespace NetCoreAudio.Interfaces
         Task Resume();
         Task Stop();
         Task SetVolume(byte percent);
+        Task<AudioFileInfo> GetFileInfo();
+        Task<long> GetStatus();
     }
 }
