@@ -1,5 +1,6 @@
 ﻿using NetCoreAudio.Interfaces;
 using System;
+using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using NetCoreAudio.Utils;
@@ -27,7 +28,10 @@ namespace NetCoreAudio.Players
         {
             await Stop();
             var BashToolName = GetBashCommand(fileName);
-            _process = StartBashProcess($"{BashToolName} '{fileName}'");
+            fileName = fileName.Replace("\"",  "\\\"");
+            /*fileName = Regex.Replace(fileName, @"(\\+)$", @"$1$1").Replace("'", @"\'").Replace(" ", @"\ "); */
+            Console.WriteLine($"{BashToolName} \"{fileName}\"");
+            _process = StartBashProcess($"{BashToolName} \"{fileName}\"");
             _process.EnableRaisingEvents = true;
             _process.Exited += HandlePlaybackFinished;
             _process.ErrorDataReceived += HandlePlaybackFinished;
