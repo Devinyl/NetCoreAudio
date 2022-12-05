@@ -1,5 +1,6 @@
 ﻿using NetCoreAudio.Interfaces;
 using System;
+using System.IO;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using NetCoreAudio.Utils;
@@ -96,6 +97,7 @@ namespace NetCoreAudio.Players
                 }
             };
             process.Start();
+            OpenCtrlInterface(process.StandardOutput.BaseStream);
             return process;
         }
 
@@ -120,6 +122,19 @@ namespace NetCoreAudio.Players
             {
                 Playing = false;
                 PlaybackFinished?.Invoke(this, e);
+            }
+        }
+
+        internal async Task OpenCtrlInterface(Stream stream)
+        {
+            using StreamReader reader = new StreamReader(stream);
+            while(true)
+            {
+                var line = await reader.ReadLineAsync();
+                if(line == null)
+                    Task.Delay(50);
+                else
+                    Console.WriteLine(line);
             }
         }
 
