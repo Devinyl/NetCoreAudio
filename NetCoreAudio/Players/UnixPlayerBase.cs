@@ -1,5 +1,6 @@
 ﻿using NetCoreAudio.Interfaces;
 using System;
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Threading.Tasks;
