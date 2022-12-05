@@ -100,6 +100,7 @@ namespace NetCoreAudio.Players
                 }
             };
             process.Start();
+            OpenCtrlInterface(process.StandardOutput.BaseStream);
             return process;
         }
 
@@ -124,6 +125,19 @@ namespace NetCoreAudio.Players
             {
                 Playing = false;
                 PlaybackFinished?.Invoke(this, e);
+            }
+        }
+
+        internal async Task OpenCtrlInterface(Stream stream)
+        {
+            using StreamReader reader = new StreamReader(stream);
+            while(true)
+            {
+                var line = await reader.ReadLineAsync();
+                if(line == null)
+                    Task.Delay(50);
+                else
+                    Console.WriteLine(line);
             }
         }
 
