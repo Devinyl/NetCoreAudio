@@ -10,22 +10,22 @@ namespace NetCoreAudio.Players
 {
     internal abstract class UnixPlayerBase : IPlayer
     {
-        private Process _process = null;
+        internal Process _process = null;
 
         internal const string PauseProcessCommand = "kill -STOP {0}";
         internal const string ResumeProcessCommand = "kill -CONT {0}";
 
         public event EventHandler PlaybackFinished;
         
-        private AudioFileInfo _audioFileInfo = new AudioFileInfo();
+        internal AudioFileInfo _audioFileInfo = new AudioFileInfo();
 
-        public bool Playing { get; private set; }
+        public bool Playing { get; set; }
 
         public bool Paused { get; private set; }
 
         protected abstract string GetBashCommand(string fileName);
 
-        public async Task Play(string fileName)
+        public virtual async Task Play(string fileName)
         {
             await Stop();
             var BashToolName = GetBashCommand(fileName);
@@ -84,7 +84,7 @@ namespace NetCoreAudio.Players
             return Task.CompletedTask;
         }
 
-        protected Process StartBashProcess(string command)
+        protected virtual Process StartBashProcess(string command)
         {
             var escapedArgs = command.Replace("\"", "\\\"");
 
@@ -101,7 +101,6 @@ namespace NetCoreAudio.Players
                 }
             };
             process.Start();
-            OpenCtrlInterface(process.StandardOutput.BaseStream);
             return process;
         }
 
@@ -126,19 +125,6 @@ namespace NetCoreAudio.Players
             {
                 Playing = false;
                 PlaybackFinished?.Invoke(this, e);
-            }
-        }
-
-        internal async Task OpenCtrlInterface(Stream stream)
-        {
-            using StreamReader reader = new StreamReader(stream);
-            while(true)
-            {
-                var line = await reader.ReadLineAsync();
-                if(line == null)
-                    Task.Delay(50);
-                else
-                    Console.WriteLine(line);
             }
         }
 
