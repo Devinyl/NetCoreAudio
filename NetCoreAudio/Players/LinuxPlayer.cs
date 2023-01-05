@@ -8,17 +8,20 @@ namespace NetCoreAudio.Players
 {
     internal class LinuxPlayer : UnixPlayerBase, IPlayer
     {
+
+        private StreamReader reader;
         protected override string GetBashCommand(string fileName)
         {
             if (Path.GetExtension(fileName).ToLower().Equals(".mp3"))
             {
-                return "mpg123 -q";
+                return "mpg123 -R";
             }
             else
             {
                 return "aplay -q";
             }
         }
+        
 
         public override async Task Play(string fileName)
         {
@@ -57,18 +60,23 @@ namespace NetCoreAudio.Players
                 }
             };
             process.Start();
-            //OpenCtrlInterface(process.StandardOutput.BaseStream);
+            OpenCtrlInterface(process.StandardOutput.BaseStream).Run();
             return process;
+        }
+
+        private bool SendCommand(string cmd)
+        {
+            if(this.reader != nulll && this.reader.
         }
                 
         internal async Task OpenCtrlInterface(Stream stream)
         {
-            using StreamReader reader = new StreamReader(stream);
-            while(true)
+            reader = new StreamReader(stream);
+            while(!reader.EndOfStream)
             {
                 var line = await reader.ReadLineAsync();
                 if(line == null)
-                    Task.Delay(50);
+                    Task.Delay(100);
                 else
                     Console.WriteLine(line);
             }
@@ -83,6 +91,30 @@ namespace NetCoreAudio.Players
             //tempProcess.WaitForExit();
 
             return Task.CompletedTask;
+        }
+        
+        public override Task Stop()
+        {
+            //Send Pause Signal
+            this.
+
+            Playing = false;
+            Paused = false;
+
+            return Task.CompletedTask;
+        }
+        
+        public void Dispose()
+        {
+            if (this.reader != null)
+                this.reader.Dispoe();
+            
+            if (_process != null)
+            {
+                _process.Kill();
+                _process.Dispose();
+                _process = null;
+            }
         }
     }
 }

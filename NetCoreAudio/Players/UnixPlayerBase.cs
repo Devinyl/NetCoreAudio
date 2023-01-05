@@ -21,31 +21,31 @@ namespace NetCoreAudio.Players
 
         public bool Playing { get; set; }
 
-        public bool Paused { get; private set; }
+        public bool Paused { get; set; }
 
         protected abstract string GetBashCommand(string fileName);
 
         public virtual async Task Play(string fileName)
         {
-            await Stop();
-            var BashToolName = GetBashCommand(fileName);
-            fileName = fileName.Replace("\"",  "\\\"");
-            /*fileName = Regex.Replace(fileName, @"(\\+)$", @"$1$1").Replace("'", @"\'").Replace(" ", @"\ "); */
-            Console.WriteLine($"{BashToolName} \"{fileName}\"");
-            _process = StartBashProcess($"{BashToolName} \"{fileName}\"");
-            _process.EnableRaisingEvents = true;
-            _process.Exited += HandlePlaybackFinished;
-            _process.ErrorDataReceived += HandlePlaybackFinished;
-            _process.Disposed += HandlePlaybackFinished;
-            Playing = true;
-
-            _audioFileInfo.FilePath = fileName;
-            _audioFileInfo.FileName = System.IO.Path.GetFileName(fileName);
-            _audioFileInfo.FileExtension = System.IO.Path.GetExtension(fileName);
-            _audioFileInfo.FileSize = new System.IO.FileInfo(fileName).Length;
+            //await Stop();
+            //var BashToolName = GetBashCommand(fileName);
+            //fileName = fileName.Replace("\"",  "\\\"");
+            ///*fileName = Regex.Replace(fileName, @"(\\+)$", @"$1$1").Replace("'", @"\'").Replace(" ", @"\ "); */
+            //Console.WriteLine($"{BashToolName} \"{fileName}\"");
+            //_process = StartBashProcess($"{BashToolName} \"{fileName}\"");
+            //_process.EnableRaisingEvents = true;
+            //_process.Exited += HandlePlaybackFinished;
+            //_process.ErrorDataReceived += HandlePlaybackFinished;
+            //_process.Disposed += HandlePlaybackFinished;
+            //Playing = true;
+            //
+            //_audioFileInfo.FilePath = fileName;
+            //_audioFileInfo.FileName = System.IO.Path.GetFileName(fileName);
+            //_audioFileInfo.FileExtension = System.IO.Path.GetExtension(fileName);
+            //_audioFileInfo.FileSize = new System.IO.FileInfo(fileName).Length;
         }
 
-        public Task Pause()
+        public virtual Task Pause()
         {
             if (Playing && !Paused && _process != null)
             {
@@ -57,7 +57,7 @@ namespace NetCoreAudio.Players
             return Task.CompletedTask;
         }
 
-        public Task Resume()
+        public virtual Task Resume()
         {
             if (Playing && Paused && _process != null)
             {
@@ -69,7 +69,7 @@ namespace NetCoreAudio.Players
             return Task.CompletedTask;
         }
 
-        public Task Stop()
+        public virtual Task Stop()
         {
             if (_process != null)
             {
