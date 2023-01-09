@@ -121,6 +121,7 @@ namespace NetCoreAudio.Players
 
         internal void HandlePlaybackFinished(object sender, EventArgs e)
         {
+            Console.WriteLine("Playbackfinished...");
             if (Playing)
             {
                 Playing = false;

@@ -8,7 +8,13 @@ namespace NetCoreAudio.Players
 {
     internal class LinuxPlayer : UnixPlayerBase, IPlayer
     {
-
+        enum PlayingState
+        {
+            stopped,
+            paused,
+            unpaused
+        }
+        private PlayingState State { get; set; }
         private StreamWriter ctrlStream;
         private byte volume = 25;
 
@@ -27,6 +33,8 @@ namespace NetCoreAudio.Players
 
             SendCommand("L " + fileName);
             SetVolume(volume);
+            Playing = true;
+            Paused = false;
         }
 
         protected bool IsRunning() => (this.ctrlStream != null && this._process != null);
@@ -85,15 +93,20 @@ namespace NetCoreAudio.Players
                 {
                     case string r when response.StartsWith(@"@F"):
                         counter++;
-                        Console.WriteLine(response);
-                        //if( (counter % 40) == 0)
-                            //Console.WriteLine(response.Split(" ")[3]);
+                        //Console.WriteLine(response);
+                        if( (counter % 40) == 0)
+                            Console.WriteLine(response.Split(" ")[3]);
                         break;
                     case string r when response.StartsWith(@"@I"):
                         Console.WriteLine(r);
                         break;
                     case @"@P 0":
                         HandlePlaybackFinished(this, EventArgs.Empty);
+                        break;
+                    case string r when response.StartsWith(@"@P"):
+                        var code = response.Split(" ")[1];
+                        State = (PlayingState) int.Parse(code);
+                        Console.WriteLine("PlayingState: " + State.ToString());
                         break;
                     default:
                         Console.WriteLine(response);
@@ -105,7 +118,8 @@ namespace NetCoreAudio.Players
         {
             if (IsRunning())
                 this.SendCommand("P");
-
+            
+            
             return Task.CompletedTask;
         }
 
