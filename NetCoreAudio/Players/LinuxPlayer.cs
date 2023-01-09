@@ -9,38 +9,37 @@ namespace NetCoreAudio.Players
     internal class LinuxPlayer : UnixPlayerBase, IPlayer
     {
 
-        private StreamReader reader;
+        private StreamWriter ctrlStream;
+        private byte volume = 25;
+
+        private int counter;
         protected override string GetBashCommand(string fileName)
         {
-            if (Path.GetExtension(fileName).ToLower().Equals(".mp3"))
-            {
-                return "mpg123 -R";
-            }
-            else
-            {
-                return "aplay -q";
-            }
+            return "mpg123 -R";
         }
         
 
         public override async Task Play(string fileName)
         {
             await Stop();
-            var BashToolName = GetBashCommand(fileName);
-            fileName = fileName.Replace("\"",  "\\\"");
-            /*fileName = Regex.Replace(fileName, @"(\\+)$", @"$1$1").Replace("'", @"\'").Replace(" ", @"\ "); */
-            Console.WriteLine($"{BashToolName} \"{fileName}\"");
-            _process = StartBashProcess($"{BashToolName} \"{fileName}\"");
+            if(!IsRunning())
+                StartMpg123();
+
+            SendCommand("L " + fileName);
+            SetVolume(volume);
+        }
+
+        protected bool IsRunning() => (this.ctrlStream != null && this._process != null);
+
+        protected void StartMpg123()
+        {
+            var BashToolName = GetBashCommand("");
+            _process = StartBashProcess($"{BashToolName}");
             _process.EnableRaisingEvents = true;
             _process.Exited += HandlePlaybackFinished;
             _process.ErrorDataReceived += HandlePlaybackFinished;
             _process.Disposed += HandlePlaybackFinished;
             Playing = true;
-
-            _audioFileInfo.FilePath = fileName;
-            _audioFileInfo.FileName = System.IO.Path.GetFileName(fileName);
-            _audioFileInfo.FileExtension = System.IO.Path.GetExtension(fileName);
-            _audioFileInfo.FileSize = new System.IO.FileInfo(fileName).Length;
         }
 
         protected override Process StartBashProcess(string command)
@@ -59,27 +58,63 @@ namespace NetCoreAudio.Players
                     CreateNoWindow = true,
                 }
             };
+            process.OutputDataReceived += DataReceivedHandler;
             process.Start();
-            OpenCtrlInterface(process.StandardOutput.BaseStream).Run();
+            ctrlStream = process.StandardInput;
+            process.BeginOutputReadLine();
             return process;
         }
 
         private bool SendCommand(string cmd)
         {
-            if(this.reader != nulll && this.reader.
-        }
-                
-        internal async Task OpenCtrlInterface(Stream stream)
-        {
-            reader = new StreamReader(stream);
-            while(!reader.EndOfStream)
+            if(IsRunning())
             {
-                var line = await reader.ReadLineAsync();
-                if(line == null)
-                    Task.Delay(100);
-                else
-                    Console.WriteLine(line);
+                this.ctrlStream.WriteLine(cmd);
+                return true;
             }
+            return false;
+
+        }
+
+        private void DataReceivedHandler(object sendingProcess, DataReceivedEventArgs outLine)
+        {
+            if (!String.IsNullOrEmpty(outLine.Data))
+            {
+                var response = outLine.Data;
+                switch(response)
+                {
+                    case string r when response.StartsWith(@"@F"):
+                        counter++;
+                        Console.WriteLine(response);
+                        //if( (counter % 40) == 0)
+                            //Console.WriteLine(response.Split(" ")[3]);
+                        break;
+                    case string r when response.StartsWith(@"@I"):
+                        Console.WriteLine(r);
+                        break;
+                    case @"@P 0":
+                        HandlePlaybackFinished(this, EventArgs.Empty);
+                        break;
+                    default:
+                        Console.WriteLine(response);
+                        break;
+                }
+            }
+        }
+        public override Task Pause()
+        {
+            if (IsRunning())
+                this.SendCommand("P");
+
+            return Task.CompletedTask;
+        }
+
+        public override Task Resume()
+        {
+            if (IsRunning())
+                this.SendCommand("P");
+
+            return Task.CompletedTask;
         }
 
         public override Task SetVolume(byte percent)
@@ -87,8 +122,8 @@ namespace NetCoreAudio.Players
             if (percent > 100)
                 throw new ArgumentOutOfRangeException(nameof(percent), "Percent can't exceed 100");
 
-            //var tempProcess = StartBashProcess($"amixer -M set 'Master' {percent}%");
-            //tempProcess.WaitForExit();
+            this.volume = percent;
+            this.SendCommand("V " + percent);
 
             return Task.CompletedTask;
         }
@@ -96,7 +131,7 @@ namespace NetCoreAudio.Players
         public override Task Stop()
         {
             //Send Pause Signal
-            this.
+            this.SendCommand("S");
 
             Playing = false;
             Paused = false;
@@ -106,8 +141,8 @@ namespace NetCoreAudio.Players
         
         public void Dispose()
         {
-            if (this.reader != null)
-                this.reader.Dispoe();
+            if (this.ctrlStream != null)
+                this.ctrlStream.Dispose();
             
             if (_process != null)
             {
