@@ -120,23 +120,43 @@ namespace NetCoreAudio.Players
                         break;
                 }
                 // complete task in event
-                tcs.SetResult(true);
+            }
+        }
+
+        private void HandlePlayEvents(PlayingState state)
+        {
+            switch (State)
+            {
+                case PlayingState.stopping:
+                    tcs.SetResult(true);
+                    break;
+                case PlayingState.stopped:
+                    if (this.State == PlayingState.stopping)
+                    {
+                        this.State = PlayingState.stopped;
+                        HandlePlaybackFinished(this, EventArgs.Empty);
+                    }
+                    break;
+                case PlayingState.pausing:
+                    break;
+                default:
+                    break;
             }
         }
         public async override Task Pause()
         {
             if (IsRunning())
                 this.SendCommand("P");
-
-            return await tcs.Task;
+            
+            //await tcs.Task;
         }
 
-        public override Task Resume()
+        public async override Task Resume()
         {
             if (IsRunning())
                 this.SendCommand("P");
 
-            return await tcs.Task;
+            //await tcs.Task;
         }
 
         public async override Task SetVolume(byte percent)
@@ -147,18 +167,21 @@ namespace NetCoreAudio.Players
             this.volume = percent;
             this.SendCommand("V " + percent);
 
-            return await tcs.Task;
+            //await tcs.Task;
         }
         
-        public override Task Stop()
+        public async override Task Stop()
         {
+            this.State = PlayingState.stopping;
+            tcs = new TaskCompletionSource<bool>();
+            
             //Send Pause Signal
             this.SendCommand("S");
 
+            await tcs.Task;
+            
             Playing = false;
             Paused = false;
-
-            return await tcs.Task;
         }
         
         public void Dispose()

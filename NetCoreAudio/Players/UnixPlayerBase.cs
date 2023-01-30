@@ -45,7 +45,7 @@ namespace NetCoreAudio.Players
             //_audioFileInfo.FileSize = new System.IO.FileInfo(fileName).Length;
         }
 
-        public virtual Task Pause()
+        public async virtual Task Pause()
         {
             if (Playing && !Paused && _process != null)
             {
@@ -53,11 +53,9 @@ namespace NetCoreAudio.Players
                 tempProcess.WaitForExit();
                 Paused = true;
             }
-
-            return Task.CompletedTask;
         }
 
-        public virtual Task Resume()
+        public async virtual Task Resume()
         {
             if (Playing && Paused && _process != null)
             {
@@ -65,11 +63,9 @@ namespace NetCoreAudio.Players
                 tempProcess.WaitForExit();
                 Paused = false;
             }
-
-            return Task.CompletedTask;
         }
 
-        public virtual Task Stop()
+        public async virtual Task Stop()
         {
             if (_process != null)
             {
@@ -80,8 +76,6 @@ namespace NetCoreAudio.Players
 
             Playing = false;
             Paused = false;
-
-            return Task.CompletedTask;
         }
 
         protected virtual Process StartBashProcess(string command)
@@ -114,9 +108,8 @@ namespace NetCoreAudio.Players
             return new Task<long>(() => 0);
         }
 
-        public Task Seek(long position)
+        public async Task Seek(long position)
         {
-            return Task.CompletedTask;
         }
 
         internal void HandlePlaybackFinished(object sender, EventArgs e)
