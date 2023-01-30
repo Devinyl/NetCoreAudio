@@ -12,10 +12,15 @@ namespace NetCoreAudio.Players
         {
             stopped,
             paused,
-            unpaused
+            unpaused,
+            stopping,
+            pausing,
+            unpausing
         }
         private PlayingState State { get; set; }
         private StreamWriter ctrlStream;
+        
+        private TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
         private byte volume = 25;
 
         private int counter;
@@ -27,7 +32,7 @@ namespace NetCoreAudio.Players
 
         public override async Task Play(string fileName)
         {
-            await Stop();
+            //await Stop();
             if(!IsRunning())
                 StartMpg123();
 
@@ -94,33 +99,36 @@ namespace NetCoreAudio.Players
                     case string r when response.StartsWith(@"@F"):
                         counter++;
                         //Console.WriteLine(response);
-                        if( (counter % 40) == 0)
-                            Console.WriteLine(response.Split(" ")[3]);
+                        //if( (counter % 40) == 0)
+                        //    Console.WriteLine(response.Split(" ")[3]);
                         break;
                     case string r when response.StartsWith(@"@I"):
                         Console.WriteLine(r);
                         break;
-                    case @"@P 0":
-                        HandlePlaybackFinished(this, EventArgs.Empty);
-                        break;
+                    // case @"@P 0":
+                    //     Console.WriteLine(response + " Got PlayBackFinisehd Event from MPg123");
+                    //     //HandlePlaybackFinished(this, EventArgs.Empty);
+                    //     break;
                     case string r when response.StartsWith(@"@P"):
                         var code = response.Split(" ")[1];
                         State = (PlayingState) int.Parse(code);
                         Console.WriteLine("PlayingState: " + State.ToString());
+                        if(State == PlayingState.stopped) HandlePlaybackFinished(this, EventArgs.Empty);
                         break;
                     default:
                         Console.WriteLine(response);
                         break;
                 }
+                // complete task in event
+                tcs.SetResult(true);
             }
         }
-        public override Task Pause()
+        public async override Task Pause()
         {
             if (IsRunning())
                 this.SendCommand("P");
-            
-            
-            return Task.CompletedTask;
+
+            return await tcs.Task;
         }
 
         public override Task Resume()
@@ -128,10 +136,10 @@ namespace NetCoreAudio.Players
             if (IsRunning())
                 this.SendCommand("P");
 
-            return Task.CompletedTask;
+            return await tcs.Task;
         }
 
-        public override Task SetVolume(byte percent)
+        public async override Task SetVolume(byte percent)
         {
             if (percent > 100)
                 throw new ArgumentOutOfRangeException(nameof(percent), "Percent can't exceed 100");
@@ -139,7 +147,7 @@ namespace NetCoreAudio.Players
             this.volume = percent;
             this.SendCommand("V " + percent);
 
-            return Task.CompletedTask;
+            return await tcs.Task;
         }
         
         public override Task Stop()
@@ -150,7 +158,7 @@ namespace NetCoreAudio.Players
             Playing = false;
             Paused = false;
 
-            return Task.CompletedTask;
+            return await tcs.Task;
         }
         
         public void Dispose()
