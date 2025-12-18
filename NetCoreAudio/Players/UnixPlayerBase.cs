@@ -16,6 +16,8 @@ namespace NetCoreAudio.Players
         internal const string ResumeProcessCommand = "kill -CONT {0}";
 
         public event EventHandler PlaybackFinished;
+        public event EventHandler<TimeSpan> PositionChanged;
+        public event EventHandler<TimeSpan> DurationChanged;
         
         internal AudioFileInfo _audioFileInfo = new AudioFileInfo();
 
@@ -108,7 +110,7 @@ namespace NetCoreAudio.Players
             return new Task<long>(() => 0);
         }
 
-        public async Task Seek(long position)
+        public virtual async Task Seek(long position)
         {
         }
 

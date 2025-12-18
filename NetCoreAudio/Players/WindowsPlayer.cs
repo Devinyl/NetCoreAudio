@@ -27,6 +27,8 @@ namespace NetCoreAudio.Players
         private long _elapsed = 0;
 
         public event EventHandler PlaybackFinished;
+        public event EventHandler<TimeSpan> PositionChanged;
+        public event EventHandler<TimeSpan> DurationChanged;
 
         public bool Playing { get; private set; }
         public bool Paused { get; private set; }

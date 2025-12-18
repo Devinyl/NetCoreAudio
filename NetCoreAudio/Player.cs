@@ -17,6 +17,16 @@ namespace NetCoreAudio
         public event EventHandler PlaybackFinished;
 
         /// <summary>
+        /// Raised when the playback position changes during playback.
+        /// </summary>
+        public event EventHandler<TimeSpan> PositionChanged;
+
+        /// <summary>
+        /// Raised when the track duration is determined.
+        /// </summary>
+        public event EventHandler<TimeSpan> DurationChanged;
+
+        /// <summary>
         /// Indicates that the audio is currently playing.
         /// </summary>
         public bool Playing => _internalPlayer.Playing;
@@ -38,6 +48,8 @@ namespace NetCoreAudio
                 throw new Exception("No implementation exist for the current OS");
 
             _internalPlayer.PlaybackFinished += OnPlaybackFinished;
+            _internalPlayer.PositionChanged += OnPositionChanged;
+            _internalPlayer.DurationChanged += OnDurationChanged;
         }
 
         /// <summary>
@@ -80,6 +92,16 @@ namespace NetCoreAudio
         private void OnPlaybackFinished(object sender, EventArgs e)
         {
             PlaybackFinished?.Invoke(this, e);
+        }
+
+        private void OnPositionChanged(object sender, TimeSpan position)
+        {
+            PositionChanged?.Invoke(this, position);
+        }
+
+        private void OnDurationChanged(object sender, TimeSpan duration)
+        {
+            DurationChanged?.Invoke(this, duration);
         }
 
         /// <summary>

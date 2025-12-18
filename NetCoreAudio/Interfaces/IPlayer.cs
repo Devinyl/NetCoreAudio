@@ -7,6 +7,8 @@ namespace NetCoreAudio.Interfaces
     public interface IPlayer : IDisposable
     {
         event EventHandler PlaybackFinished;
+        event EventHandler<TimeSpan> PositionChanged;
+        event EventHandler<TimeSpan> DurationChanged;
 
         bool Playing { get; }
         bool Paused { get; }

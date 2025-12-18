@@ -24,6 +24,12 @@ namespace NetCoreAudio.Players
         private byte volume = 25;
 
         private int counter;
+        private double lastReportedPosition = -1;
+        private bool durationSet = false;
+        private long totalFrameCount = 0; // Total frames in the track
+        private double totalDurationSeconds = 0; // Total duration in seconds
+        public event EventHandler<TimeSpan> PositionChanged;
+        public event EventHandler<TimeSpan> DurationChanged;
         protected override string GetBashCommand(string fileName)
         {
             return "mpg123 -R";
@@ -36,6 +42,13 @@ namespace NetCoreAudio.Players
             if(!IsRunning())
                 StartMpg123();
 
+            // Reset duration tracking for new file
+            durationSet = false;
+            lastReportedPosition = -1;
+            totalFrameCount = 0;
+            totalDurationSeconds = 0;
+            totalDurationSeconds = 0;
+            
             SendCommand("L " + fileName);
             SetVolume(volume);
             Playing = true;
@@ -50,7 +63,12 @@ namespace NetCoreAudio.Players
             _process = StartBashProcess($"{BashToolName}");
             _process.EnableRaisingEvents = true;
             _process.Exited += HandlePlaybackFinished;
-            _process.ErrorDataReceived += HandlePlaybackFinished;
+            _process.ErrorDataReceived += (sender, e) => {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Console.WriteLine($"mpg123 stderr: {e.Data}");
+                }
+            };
             _process.Disposed += HandlePlaybackFinished;
             Playing = true;
         }
@@ -98,9 +116,54 @@ namespace NetCoreAudio.Players
                 {
                     case string r when response.StartsWith(@"@F"):
                         counter++;
-                        //Console.WriteLine(response);
-                        //if( (counter % 40) == 0)
-                        //    Console.WriteLine(response.Split(" ")[3]);
+                        // Parse @F frame: @F <frame> <frames-left> <seconds> <seconds-left>
+                        var parts = response.Split(' ');
+                        if (parts.Length >= 5 
+                            && long.TryParse(parts[1], out long currentFrame)
+                            && long.TryParse(parts[2], out long framesLeft)
+                            && double.TryParse(parts[3], out double currentSeconds) 
+                            && double.TryParse(parts[4], out double secondsLeft))
+                        {
+                            // Set duration once from the first @F frame
+                            if (!durationSet)
+                            {
+                                totalDurationSeconds = currentSeconds + secondsLeft;
+                                // Calculate total frame count based on the actual position
+                                // Don't use currentFrame + framesLeft as currentFrame is absolute position
+                                // Instead, derive from frame position and time position
+                                if (currentSeconds > 0)
+                                {
+                                    // Calculate frames per second from current data
+                                    double fps = currentFrame / currentSeconds;
+                                    totalFrameCount = (long)(fps * totalDurationSeconds);
+                                }
+                                else
+                                {
+                                    // Fallback: use framesLeft if we're at the start
+                                    totalFrameCount = framesLeft;
+                                }
+                                var totalDuration = TimeSpan.FromSeconds(totalDurationSeconds);
+                                DurationChanged?.Invoke(this, totalDuration);
+                                durationSet = true;
+                                Console.WriteLine($"Track info: {totalFrameCount} frames, {totalDurationSeconds:F1} seconds (calculated from frame {currentFrame} at {currentSeconds:F1}s)");
+                            }
+                            
+                            // Check if track has finished (less than 1 second remaining)
+                            if (secondsLeft < 1.0 && Playing)
+                            {
+                                Console.WriteLine($"Track finished: {currentSeconds:F1}s / {totalDurationSeconds:F1}s");
+                                HandlePlaybackFinished(this, EventArgs.Empty);
+                                Playing = false;
+                            }
+                            // Only report position updates once per second to avoid flooding
+                            else if (Math.Abs(currentSeconds - lastReportedPosition) >= 1.0)
+                            {
+                                lastReportedPosition = currentSeconds;
+                                var position = TimeSpan.FromSeconds(currentSeconds);
+                                PositionChanged?.Invoke(this, position);
+                                //Console.WriteLine($"Position: {currentSeconds:F1}s");
+                            }
+                        }
                         break;
                     case string r when response.StartsWith(@"@I"):
                         Console.WriteLine(r);
@@ -112,11 +175,16 @@ namespace NetCoreAudio.Players
                     case string r when response.StartsWith(@"@P"):
                         var code = response.Split(" ")[1];
                         State = (PlayingState) int.Parse(code);
-                        Console.WriteLine("PlayingState: " + State.ToString());
-                        if(State == PlayingState.stopped) HandlePlaybackFinished(this, EventArgs.Empty);
+                        Console.WriteLine($"PlayingState: {State} (after seek: ignoring stopped state)");
+                        // Don't trigger track finished on stopped state - it's unreliable
+                        // We detect track finished from @F frames instead
+                        // if(State == PlayingState.stopped) HandlePlaybackFinished(this, EventArgs.Empty);
+                        break;
+                    case string r when response.StartsWith(@"@E"):
+                        Console.WriteLine($"mpg123 ERROR: {response}");
                         break;
                     default:
-                        Console.WriteLine(response);
+                        Console.WriteLine($"mpg123: {response}");
                         break;
                 }
                 // complete task in event
@@ -131,11 +199,9 @@ namespace NetCoreAudio.Players
                     tcs.SetResult(true);
                     break;
                 case PlayingState.stopped:
-                    if (this.State == PlayingState.stopping)
-                    {
-                        this.State = PlayingState.stopped;
-                        HandlePlaybackFinished(this, EventArgs.Empty);
-                    }
+                    // Don't trigger track finished here - we handle it from @F frames
+                    // This stopped state can be triggered by seeking or other operations
+                    Console.WriteLine("HandlePlayEvents: stopped state ignored (handled via @F frames)");
                     break;
                 case PlayingState.pausing:
                     break;
@@ -168,6 +234,32 @@ namespace NetCoreAudio.Players
             this.SendCommand("V " + percent);
 
             //await tcs.Task;
+        }
+
+        public override async Task Seek(long position)
+        {
+            if (IsRunning() && totalFrameCount > 0 && totalDurationSeconds > 0)
+            {
+                // Calculate frame position based on actual total frame count
+                // This handles variable bitrate MP3s correctly
+                double framesPerSecond = totalFrameCount / totalDurationSeconds;
+                long targetFrame = (long)(position * framesPerSecond);
+                
+                // Ensure we don't seek beyond the end of the track
+                if (targetFrame >= totalFrameCount)
+                {
+                    Console.WriteLine($"Seek position {position}s (frame {targetFrame}) is beyond track end ({totalFrameCount} frames), skipping");
+                    return;
+                }
+                
+                Console.WriteLine($"Seeking to {position}s using actual fps {framesPerSecond:F1} (frame {targetFrame}/{totalFrameCount})");
+                this.SendCommand($"JUMP {targetFrame}");
+                Console.WriteLine($"mpg123 seek command sent: JUMP {targetFrame}");
+            }
+            else
+            {
+                Console.WriteLine($"Cannot seek: track not ready (frames={totalFrameCount}, duration={totalDurationSeconds}s)");
+            }
         }
         
         public async override Task Stop()
