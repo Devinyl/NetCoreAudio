@@ -18,6 +18,8 @@ namespace NetCoreAudio.Players
         public event EventHandler PlaybackFinished;
         public event EventHandler<TimeSpan> PositionChanged;
         public event EventHandler<TimeSpan> DurationChanged;
+        // Semantic track finished event - to be raised by concrete players
+        public event EventHandler TrackFinished;
         
         internal AudioFileInfo _audioFileInfo = new AudioFileInfo();
 
@@ -116,13 +118,35 @@ namespace NetCoreAudio.Players
 
         internal void HandlePlaybackFinished(object sender, EventArgs e)
         {
-            Console.WriteLine("Playbackfinished...");
-            if (Playing)
+            Console.WriteLine("Playbackfinished (HandlePlaybackFinished called)...");
+            // Always mark as not playing and notify listeners. Some backends may call
+            // this when Playing is already false (for example after a seek), but
+            // higher layers expect a final notification when playback truly finishes.
+            Playing = false;
+            try
             {
-                Playing = false;
                 PlaybackFinished?.Invoke(this, e);
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error invoking PlaybackFinished handlers: {ex}");
+            }
         }
+
+        internal void RaiseTrackFinished()
+        {
+            try
+            {
+                Console.WriteLine($"[UnixPlayerBase.RaiseTrackFinished] Invoking TrackFinished event (subscribers: {TrackFinished?.GetInvocationList().Length ?? 0})");
+                TrackFinished?.Invoke(this, EventArgs.Empty);
+                Console.WriteLine($"[UnixPlayerBase.RaiseTrackFinished] Event invocation completed");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error invoking TrackFinished handlers: {ex}");
+            }
+        }
+
 
         public abstract Task SetVolume(byte percent);
 

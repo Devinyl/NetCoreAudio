@@ -27,6 +27,7 @@ namespace NetCoreAudio.Players
         private long _elapsed = 0;
 
         public event EventHandler PlaybackFinished;
+        public event EventHandler TrackFinished;
         public event EventHandler<TimeSpan> PositionChanged;
         public event EventHandler<TimeSpan> DurationChanged;
 
@@ -165,6 +166,14 @@ namespace NetCoreAudio.Players
         {
             Playing = false;
             PlaybackFinished?.Invoke(this, e);
+            try
+            {
+                TrackFinished?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception)
+            {
+                // swallow exceptions from listeners to avoid crashing playback thread
+            }
             _playbackTimer.Dispose();
             _playbackTimer = null;
         }

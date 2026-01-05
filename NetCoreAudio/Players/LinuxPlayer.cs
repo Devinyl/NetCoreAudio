@@ -24,6 +24,8 @@ namespace NetCoreAudio.Players
         private byte volume = 25;
 
         private int counter;
+        private PlayingState previousState = PlayingState.stopped;
+        private bool wasPlayingRecently = false;  // Track if we were in a playing state
         private double lastReportedPosition = -1;
         private bool durationSet = false;
         private long totalFrameCount = 0; // Total frames in the track
@@ -53,6 +55,8 @@ namespace NetCoreAudio.Players
             SetVolume(volume);
             Playing = true;
             Paused = false;
+            previousState = PlayingState.stopped;  // Reset state tracking for new file
+            wasPlayingRecently = true;  // We're about to play, so mark as such
         }
 
         protected bool IsRunning() => (this.ctrlStream != null && this._process != null);
@@ -145,14 +149,17 @@ namespace NetCoreAudio.Players
                                 var totalDuration = TimeSpan.FromSeconds(totalDurationSeconds);
                                 DurationChanged?.Invoke(this, totalDuration);
                                 durationSet = true;
-                                Console.WriteLine($"Track info: {totalFrameCount} frames, {totalDurationSeconds:F1} seconds (calculated from frame {currentFrame} at {currentSeconds:F1}s)");
                             }
                             
-                            // Check if track has finished (less than 1 second remaining)
-                            if (secondsLeft < 1.0 && Playing)
+                            // Check if track has finished:
+                            // 1. Less than 1 second remaining (standard case)
+                            // 2. No frames left (some MP3s report this instead of low secondsLeft)
+                            bool isTrackEnd = (secondsLeft < 1.0) || (framesLeft <= 0);
+                            if (isTrackEnd && Playing)
                             {
-                                Console.WriteLine($"Track finished: {currentSeconds:F1}s / {totalDurationSeconds:F1}s");
-                                HandlePlaybackFinished(this, EventArgs.Empty);
+                                Console.WriteLine($"[SEMANTIC TRACK FINISHED] {currentSeconds:F1}s / {totalDurationSeconds:F1}s, secondsLeft={secondsLeft:F3}, framesLeft={framesLeft}");
+                                // Raise semantic TrackFinished (distinct from process exit)
+                                RaiseTrackFinished();
                                 Playing = false;
                             }
                             // Only report position updates once per second to avoid flooding
@@ -175,13 +182,32 @@ namespace NetCoreAudio.Players
                     case string r when response.StartsWith(@"@P"):
                         var code = response.Split(" ")[1];
                         State = (PlayingState) int.Parse(code);
-                        Console.WriteLine($"PlayingState: {State} (after seek: ignoring stopped state)");
-                        // Don't trigger track finished on stopped state - it's unreliable
-                        // We detect track finished from @F frames instead
-                        // if(State == PlayingState.stopped) HandlePlaybackFinished(this, EventArgs.Empty);
+                        
+                        // Track if we're in a playing state (unpaused=1, pausing=4)
+                        if (State == PlayingState.unpaused || State == PlayingState.pausing)
+                        {
+                            wasPlayingRecently = true;
+                        }
+                        
+                        // Detect transition to stopped as alternate track-end indicator
+                        // Fire TrackFinished if we transition to stopped after being in a playing state
+                        // Note: we don't require Playing==true because the state change itself is the signal
+                        if (wasPlayingRecently && State == PlayingState.stopped)
+                        {
+                            RaiseTrackFinished();
+                            Playing = false;
+                            wasPlayingRecently = false;
+                        }
+                        previousState = State;
                         break;
                     case string r when response.StartsWith(@"@E"):
-                        Console.WriteLine($"mpg123 ERROR: {response}");
+                        // Some mpg123 errors indicate no track loaded (e.g. seek beyond EOF).
+                        // Treat "No track loaded" as end-of-track so higher layers advance.
+                        if (response.Contains("No track loaded"))
+                        {
+                            // Treat this as semantic end-of-track
+                            RaiseTrackFinished();
+                        }
                         break;
                     default:
                         Console.WriteLine($"mpg123: {response}");

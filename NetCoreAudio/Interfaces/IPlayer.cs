@@ -7,6 +7,10 @@ namespace NetCoreAudio.Interfaces
     public interface IPlayer : IDisposable
     {
         event EventHandler PlaybackFinished;
+        // Semantic event: raised when the current track reaches its natural end
+        // (not when the underlying process exits or emits warnings). This should
+        // be used by higher layers to advance playlists reliably.
+        event EventHandler TrackFinished;
         event EventHandler<TimeSpan> PositionChanged;
         event EventHandler<TimeSpan> DurationChanged;
 

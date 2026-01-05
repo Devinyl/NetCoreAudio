@@ -15,6 +15,7 @@ namespace NetCoreAudio
         /// Internally, sets Playing flag to false. Additional handlers can be attached to it to handle any custom logic.
         /// </summary>
         public event EventHandler PlaybackFinished;
+        public event EventHandler TrackFinished;
 
         /// <summary>
         /// Raised when the playback position changes during playback.
@@ -50,6 +51,7 @@ namespace NetCoreAudio
             _internalPlayer.PlaybackFinished += OnPlaybackFinished;
             _internalPlayer.PositionChanged += OnPositionChanged;
             _internalPlayer.DurationChanged += OnDurationChanged;
+            _internalPlayer.TrackFinished += OnTrackFinished;
         }
 
         /// <summary>
@@ -97,6 +99,11 @@ namespace NetCoreAudio
         private void OnPositionChanged(object sender, TimeSpan position)
         {
             PositionChanged?.Invoke(this, position);
+        }
+
+        private void OnTrackFinished(object sender, EventArgs e)
+        {
+            TrackFinished?.Invoke(this, e);
         }
 
         private void OnDurationChanged(object sender, TimeSpan duration)
